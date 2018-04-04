@@ -1,0 +1,78 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  become: no
+
+  vars:
+    user_name:
+    set_pass: N
+    user_pass:
+    create_group: N
+    group_name:
+    add_user_to_group: N
+    create_access_keys: N
+
+  tasks:
+
+    - name: print out variable
+      debug: msg="{{user_pass}}"
+
+    - name: create group
+      iam:
+        iam_type: group
+        name: "{{ group_name }}"
+        state: present
+      when:
+        - create_group == 'Y'
+        - group_name != 'null'
+
+    - name: create user only
+      iam:
+        iam_type: user
+        name: "{{ user_name }}"
+        state: present
+      when:
+        - user_name != 'null'
+
+    - name: update user with password (console access)
+      iam:
+        iam_type: user
+        name: "{{ user_name }}"
+        state: update
+        password: "{{ user_pass }}"
+      when:
+        - user_name != 'null'
+        - user_pass != 'null'
+        - set_pass == 'Y'
+
+    - name: add user to group {{group_name}}
+      iam:
+        iam_type: user
+        name: "{{ user_name }}"
+        state: update
+        groups: "{{ group_name }}"
+      when:
+        - user_name != 'null'
+        - user_pass != 'null'
+        - add_user_to_group == 'Y'
+        - group_name != 'null'
+
+    # - name: update user for programmatic access (access keys)
+    #   iam:
+    #     iam_type: user
+    #     name: "{{ user_name }}"
+    #     state: update
+    #     access_key_state: create
+    #   when:
+    #     - user_name != 'null'
+    #     - create_access_keys == 'Y'
+    #   register: credentials
+
+    - name: update user for programmatic access (access keys)
+      command: aws iam create-access-key --user-name {{user_name}}
+      register: credentials
+
+    - name: print out the credentials
+      debug: msg="{{credentials.stdout}}"
+#      when: credentials != 'null'
