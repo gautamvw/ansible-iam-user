@@ -13,9 +13,10 @@
     add_user_to_group: N
     create_access_keys: N
     email_id_pattern: '^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,3})$'
+    aws_org: default
+    aws_console: https://{{ aws_org }}.signin.aws.amazon.com/console
 
   tasks:
-
     - debug: msg="{{validate_emailid}}"
       when: user_name is not match(email_id_pattern)
 
@@ -61,7 +62,7 @@
           - user_name != 'null'
           - user_pass != 'null'
           - add_user_to_group == 'Y'
-          - group_name != 'null'
+          - group_name != 'null' or group_name != ''
 
       - name: update user for programmatic access (access keys)
         command: aws iam create-access-key --user-name {{user_name}}
@@ -70,10 +71,13 @@
       - name: print out the credentials
         debug: msg="{{credentials.stdout}}"
 
-      - name: notifying the user
-        sns:
-          msg: "{{credentials.stdout}}"
-          subject: "PierianDx AWS User Credentials"
-          topic: "arn:aws:sns:us-west-2:..."
-      
+      - name: Sending credentials to the {{user_name}}
+        mail:
+          to: "{{user_name}}"
+          subject: PierianDx AWS User Credentials
+          body: "Please do find your AWS credentials as below:  \n
+                AWS CONSOLE LINK: {{ aws_console }}             \n
+                Credentials for {{ user_name }}:                \n
+                {{ credentials.stdout }}                        \n\n
+                The console login password if applicable will be sent to you in a different mail"
       when: user_name is match(email_id_pattern)
